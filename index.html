@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CV Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0e0c;
+      --surface: #1a1916;
+      --surface2: #232220;
+      --border: #2e2c29;
+      --gold: #c9a84c;
+      --gold-light: #e8c97a;
+      --gold-dim: rgba(201,168,76,0.12);
+      --text: #f0ece4;
+      --text-muted: #8a8680;
+      --text-dim: #5a5854;
+      --danger: #c0392b;
+      --success: #27ae60;
+      --radius: 4px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: .4;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 28px 48px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,14,12,0.92);
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem; font-weight: 900; letter-spacing: -0.5px;
+      color: var(--gold);
+    }
+    .brand span { color: var(--text); font-weight: 400; }
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border: none; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; font-size: .85rem;
+      font-weight: 500; letter-spacing: .4px; border-radius: var(--radius);
+      transition: all .2s ease;
+    }
+    .btn-primary {
+      background: var(--gold); color: #0f0e0c;
+    }
+    .btn-primary:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,168,76,.3); }
+    .btn-ghost {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+    .btn-danger {
+      background: transparent; color: var(--danger);
+      border: 1px solid rgba(192,57,43,.3);
+    }
+    .btn-danger:hover { background: rgba(192,57,43,.1); }
+    .btn-sm { padding: 7px 14px; font-size: .78rem; }
+
+    /* ── LAYOUT ── */
+    .app { display: flex; min-height: calc(100vh - 81px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 320px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 32px 24px;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-size: .7rem; font-weight: 600; letter-spacing: 2px;
+      color: var(--text-dim); text-transform: uppercase;
+      margin-bottom: 20px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cv-list { display: flex; flex-direction: column; gap: 8px; }
+    .cv-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px;
+      cursor: pointer; transition: all .2s ease;
+      position: relative; overflow: hidden;
+    }
+    .cv-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--gold); transform: scaleY(0);
+      transform-origin: bottom; transition: transform .2s ease;
+    }
+    .cv-card:hover { border-color: var(--gold); background: var(--surface2); }
+    .cv-card:hover::before, .cv-card.active::before { transform: scaleY(1); }
+    .cv-card.active { border-color: var(--gold); background: var(--gold-dim); }
+    .cv-card-name {
+      font-weight: 600; font-size: .95rem; color: var(--text);
+      margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cv-card-meta { font-size: .75rem; color: var(--text-muted); }
+    .cv-card-actions {
+      display: flex; gap: 6px; margin-top: 12px;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main { flex: 1; padding: 40px 56px; overflow-y: auto; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 60vh; gap: 16px; text-align: center;
+    }
+    .empty-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: var(--gold-dim); border: 1px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+    }
+    .empty-state h2 {
+      font-family: 'Playfair Display', serif; font-size: 1.8rem;
+      color: var(--text);
+    }
+    .empty-state p { color: var(--text-muted); max-width: 340px; line-height: 1.6; }
+
+    /* ── CV DETAIL VIEW ── */
+    .cv-detail { animation: fadeUp .3s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .detail-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 40px; padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-photo {
+      width: 96px; height: 96px; border-radius: 50%;
+      object-fit: cover; border: 2px solid var(--gold);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-identity { flex: 1; padding: 0 24px; }
+    .detail-name {
+      font-family: 'Playfair Display', serif; font-size: 2.4rem;
+      font-weight: 900; color: var(--text); line-height: 1.1;
+      margin-bottom: 8px;
+    }
+    .detail-title-job { font-size: 1rem; color: var(--gold); font-weight: 500; margin-bottom: 12px; }
+    .detail-contacts { display: flex; flex-wrap: wrap; gap: 16px; }
+    .detail-contact { font-size: .82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+
+    .section-label {
+      font-size: .68rem; font-weight: 600; letter-spacing: 2.5px;
+      color: var(--gold); text-transform: uppercase;
+      margin-bottom: 16px; margin-top: 32px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .detail-bio {
+      color: var(--text-muted); line-height: 1.8; font-size: .92rem;
+    }
+
+    .skills-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .skill-tag {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 2px; padding: 5px 14px;
+      font-size: .78rem; color: var(--text-muted);
+      transition: all .2s;
+    }
+    .skill-tag:hover { border-color: var(--gold); color: var(--gold); }
+
+    .exp-item { margin-bottom: 24px; }
+    .exp-role { font-weight: 600; color: var(--text); font-size: .95rem; }
+    .exp-company { color: var(--gold); font-size: .85rem; margin: 2px 0; }
+    .exp-period { color: var(--text-dim); font-size: .78rem; margin-bottom: 6px; }
+    .exp-desc { color: var(--text-muted); font-size: .85rem; line-height: 1.6; }
+
+    .video-wrapper {
+      margin-top: 8px; border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--border); max-width: 560px;
+    }
+    .video-wrapper video { width: 100%; display: block; }
+
+    .video-wrapper audio {
+  width: 100%;
+  display: block;
+  padding: 16px;
+  background: var(--surface2);
+}
+
+    .detail-actions { display: flex; gap: 12px; align-items: center; }
+
+    /* ── MODAL / FORM ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; width: 720px; max-width: 95vw;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 32px 80px rgba(0,0,0,.6);
+      animation: slideUp .25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(24px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 28px 32px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface); z-index: 1;
+    }
+    .modal-title {
+      font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1.4rem; line-height: 1;
+      transition: color .2s; padding: 4px 8px;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 32px; }
+    .modal-footer {
+      display: flex; justify-content: flex-end; gap: 12px;
+      padding: 20px 32px; border-top: 1px solid var(--border);
+      position: sticky; bottom: 0; background: var(--surface);
+    }
+
+    /* ── FORM ELEMENTS ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label {
+      font-size: .72rem; font-weight: 600; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    input, textarea, select {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 11px 14px;
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: .88rem;
+      outline: none; transition: border-color .2s, box-shadow .2s; width: 100%;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201,168,76,.1);
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    select option { background: var(--surface2); }
+
+    .file-input-wrapper {
+      position: relative; display: flex; align-items: center;
+      gap: 12px;
+    }
+    .file-input-wrapper input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+    }
+    .file-label {
+      flex: 1; padding: 11px 14px; background: var(--surface2);
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-size: .85rem; cursor: pointer;
+      transition: border-color .2s;
+    }
+    .file-label:hover { border-color: var(--gold); }
+    .file-preview {
+      width: 48px; height: 48px; border-radius: 50%;
+      object-fit: cover; border: 1px solid var(--border);
+      display: none;
+    }
+
+    /* section form separator */
+    .form-section-title {
+      font-size: .68rem; font-weight: 600; letter-spacing: 2px;
+      color: var(--gold); text-transform: uppercase;
+      margin: 24px 0 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .form-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── TOAST ── */
+    .toast-container { position: fixed; bottom: 28px; right: 28px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 20px;
+      font-size: .85rem; min-width: 240px;
+      display: flex; align-items: center; gap: 12px;
+      animation: toastIn .25s ease;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .toast.success { border-color: var(--success); }
+    .toast.error   { border-color: var(--danger);  }
+    .toast .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.success .dot { background: var(--success); }
+    .toast.error   .dot { background: var(--danger);  }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .sidebar { width: 260px; padding: 24px 16px; }
+      .main { padding: 28px 24px; }
+      header { padding: 20px 24px; }
+    }
+    @media (max-width: 640px) {
+      .app { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: 1; }
+      .detail-header { flex-direction: column; gap: 16px; }
+      .main { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">CV<span>Manager</span></div>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="btn-new-cv">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nouveau CV
+    </button>
+  </div>
+</header>
+
+<!-- APP LAYOUT -->
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Mes CVs</div>
+    <div class="cv-list" id="cv-list">
+      <div style="color:var(--text-dim);font-size:.82rem;text-align:center;padding:32px 0;">Aucun CV enregistré</div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="main-content">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📄</div>
+      <h2>Commencez par créer un CV</h2>
+      <p>Cliquez sur « Nouveau CV » pour ajouter votre premier curriculum vitæ. Toutes les données sont stockées localement dans votre navigateur.</p>
+      <button class="btn btn-primary" onclick="openForm()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Créer mon premier CV
+      </button>
+    </div>
+    <div class="cv-detail" id="cv-detail" style="display:none;"></div>
+  </main>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- MODAL FORM -->
+<div class="modal-backdrop" id="modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Nouveau CV</div>
+      <button class="modal-close" onclick="closeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section-title">Informations personnelles</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Prénom *</label>
+          <input type="text" id="f-prenom" placeholder="Marie" required />
+        </div>
+        <div class="form-group">
+          <label>Nom *</label>
+          <input type="text" id="f-nom" placeholder="Dupont" required />
+        </div>
+        <div class="form-group full">
+          <label>Titre / Poste recherché</label>
+          <input type="text" id="f-titre" placeholder="Développeuse Full-Stack" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="f-email" placeholder="marie@exemple.fr" />
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="f-tel" placeholder="+33 6 00 00 00 00" />
+        </div>
+        <div class="form-group">
+          <label>Ville</label>
+          <input type="text" id="f-ville" placeholder="Paris" />
+        </div>
+        
+        <div class="form-group full">
+          <label>Résumé / Objectif professionnel</label>
+          <textarea id="f-resume" placeholder="Décrivez votre profil en quelques lignes…"></textarea>
+        </div>
+
+        <div class="form-section-title full">Compétences</div>
+        <div class="form-group full">
+          <label>Compétences (séparées par des virgules)</label>
+          <input type="text" id="f-skills" placeholder="TypeScript, React, Node.js, Docker…" />
+        </div>
+
+        <div class="form-section-title full">Expériences professionnelles</div>
+        <div class="form-group full">
+          <label>Poste occupé</label>
+          <input type="text" id="f-exp-role" placeholder="Développeur Backend Senior" />
+        </div>
+        <div class="form-group">
+          <label>Entreprise</label>
+          <input type="text" id="f-exp-company" placeholder="Acme Corp" />
+        </div>
+        <div class="form-group">
+          <label>Période</label>
+          <input type="text" id="f-exp-period" placeholder="2021 – 2024" />
+        </div>
+        <div class="form-group full">
+          <label>Description</label>
+          <textarea id="f-exp-desc" placeholder="Missions, réalisations…"></textarea>
+        </div>
+
+
+        <div class="form-section-title full">Projets</div>
+
+<div class="form-group full">
+  <label>Nom du projet</label>
+  <input type="text" id="f-project-name" placeholder="Application de gestion de stock" />
+</div>
+
+<div class="form-group">
+  <label>Lien du projet</label>
+  <input type="url" id="f-project-link" placeholder="https://github.com/monprojet" />
+</div>
+
+<div class="form-group">
+  <label>Tech Stack</label>
+  <input type="text" id="f-project-tech" placeholder="React, Node.js, MongoDB..." />
+</div>
+
+<div class="form-group full">
+  <label>Description du projet</label>
+  <textarea id="f-project-desc" placeholder="Décrivez le projet, les fonctionnalités, votre rôle..."></textarea>
+</div>
+
+       <div class="form-section-title full">Formations</div>
+
+<div class="form-group full">
+  <label>Formations</label>
+  <textarea 
+    id="f-education" 
+    placeholder="Master Informatique — Université de Yaoundé I — 2025&#10;Licence Génie Logiciel — IAI Cameroun — 2023"
+    style="min-height: 140px;"
+  ></textarea>
+</div>
+
+<div class="form-section-title full">Certifications</div>
+
+<div class="form-group full">
+  <label>Certifications</label>
+  <textarea 
+    id="f-certifications" 
+    placeholder="AWS Certified Developer&#10;Cisco CCNA&#10;Google UX Design Certificate"
+    style="min-height: 140px;"
+  ></textarea>
+</div>
+
+<div class="form-section-title full">Langues & Soft skills</div>
+
+<div class="form-group full">
+  <label>Langues (ex: Français, Anglais)</label>
+  <input type="text" id="f-languages" placeholder="Français, Anglais..." />
+</div>
+
+<div class="form-group full">
+  <label>Soft skills</label>
+  <input type="text" id="f-softskills" placeholder="Travail en équipe, leadership..." />
+</div>
+
+<div class="form-section-title full">Centres d'intérêts</div>
+
+<div class="form-group full">
+  <label>Centres d'intérêt</label>
+  <input type="text" id="f-interests" placeholder="Sport, musique, lecture..." />
+</div>
+
+
+        <div class="form-section-title full">Médias</div>
+        <div class="form-group full">
+          <label>Photo de profil</label>
+          <div class="file-input-wrapper">
+            <div class="file-label" id="photo-label">Choisir une image (JPG, PNG…)</div>
+            <img class="file-preview" id="photo-preview" />
+            <input type="file" id="f-photo" accept="image/*" onchange="previewPhoto(this)" />
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Vidéo de présentation (optionnel)</label>
+          <div class="file-input-wrapper">
+            <div class="file-label" id="video-label">Choisir une vidéo (MP4, WebM…)</div>
+            <input type="file" id="f-video" accept="video/*" onchange="labelFile(this,'video-label')" />
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group full">
+  <label>Audio de présentation (optionnel)</label>
+  <div class="file-input-wrapper">
+    <div class="file-label" id="audio-label">Choisir un audio (MP3, WAV…)</div>
+    <input type="file" id="f-audio" accept="audio/*" onchange="labelFile(this,'audio-label')" />
+  </div>
+</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeForm()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCV()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CV MANAGER — TypeScript-style JavaScript
+   Toutes les données sont stockées dans IndexedDB
+═══════════════════════════════════════════════ */
+
+// ── TYPES (commentaire JSDoc pour auto-complétion)
+/** @typedef {{ id?: number, prenom: string, nom: string, titre?: string, email?: string, tel?: string, ville?: string, lien?: string, resume?: string, skills?: string, expRole?: string, expCompany?: string, expPeriod?: string, expDesc?: string, photoData?: string, videoData?: string, createdAt: string }} CV */
+
+// ── INDEXEDDB LAYER
+const DB_NAME = 'cv_manager_db';
+const DB_VERSION = 1;
+const STORE = 'cvs';
+
+/** @type {IDBDatabase|null} */
+let db = null;
+
+/** @returns {Promise<IDBDatabase>} */
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      /** @type {IDBDatabase} */
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(STORE)) {
+        database.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+/** @returns {Promise<CV[]>} */
+function getAllCVs() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+/** @param {CV} cv @returns {Promise<number>} */
+function addCV(cv) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).add(cv);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+/** @param {CV} cv @returns {Promise<void>} */
+function updateCV(cv) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(cv);
+    req.onsuccess = () => resolve();
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+/** @param {number} id @returns {Promise<void>} */
+function deleteCV(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+// ── APP STATE
+/** @type {CV[]} */
+let cvList = [];
+/** @type {number|null} */
+let selectedId = null;
+/** @type {number|null} */
+let editingId  = null;
+
+// ── INIT
+async function init() {
+  await openDB();
+  await refreshList();
+}
+
+async function refreshList() {
+  cvList = await getAllCVs();
+  renderSidebar();
+  if (selectedId !== null) {
+    const cv = cvList.find(c => c.id === selectedId);
+    cv ? renderDetail(cv) : showEmpty();
+  } else {
+    showEmpty();
+  }
+}
+
+// ── SIDEBAR
+function renderSidebar() {
+  const list = document.getElementById('cv-list');
+  if (cvList.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:.82rem;text-align:center;padding:32px 0;">Aucun CV enregistré</div>';
+    return;
+  }
+  list.innerHTML = cvList.map(cv => `
+    <div class="cv-card ${cv.id === selectedId ? 'active' : ''}" onclick="selectCV(${cv.id})">
+      <div class="cv-card-name">${esc(cv.prenom)} ${esc(cv.nom)}</div>
+      <div class="cv-card-meta">${esc(cv.titre || 'Sans titre')} · ${cv.createdAt}</div>
+      <div class="cv-card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openForm(${cv.id})">Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDelete(${cv.id})">Supprimer</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectCV(id) {
+  selectedId = id;
+  const cv = cvList.find(c => c.id === id);
+  if (cv) renderDetail(cv);
+  renderSidebar();
+}
+
+// ── DETAIL VIEW
+function showEmpty() {
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('cv-detail').style.display   = 'none';
+}
+
+/** @param {CV} cv */
+function renderDetail(cv) {
+  document.getElementById('empty-state').style.display = 'none';
+  const detail = document.getElementById('cv-detail');
+  detail.style.display = 'block';
+
+  const skillsHTML = cv.skills
+    ? cv.skills.split(',').map(s => `<span class="skill-tag">${esc(s.trim())}</span>`).join('')
+    : '<span style="color:var(--text-dim);font-size:.82rem;">Aucune compétence renseignée</span>';
+
+  const photoHTML = cv.photoData
+    ? `<div class="detail-photo"><img src="${cv.photoData}" alt="Photo" /></div>`
+    : `<div class="detail-photo">👤</div>`;
+
+  const videoHTML = cv.videoData
+    ? `<div class="section-label">Vidéo de présentation</div>
+       <div class="video-wrapper"><video controls src="${cv.videoData}"></video></div>`
+    : '';
+
+   const audioHTML = cv.audioData
+  ? `<div class="section-label">Audio de présentation</div>
+     <div class="video-wrapper">
+       <audio controls style="width:100%; padding:18px;">
+         <source src="${cv.audioData}">
+       </audio>
+     </div>`
+  : '';
+
+  const expHTML = cv.expRole ? `
+    <div class="section-label">Expériences</div>
+    <div class="exp-item">
+      <div class="exp-role">${esc(cv.expRole)}</div>
+      <div class="exp-company">${esc(cv.expCompany || '')}</div>
+      <div class="exp-period">${esc(cv.expPeriod || '')}</div>
+      <div class="exp-desc">${esc(cv.expDesc || '')}</div>
+    </div>` : '';
+
+  detail.innerHTML = `
+    <div class="detail-header">
+      ${photoHTML}
+      <div class="detail-identity">
+        <div class="detail-name">${esc(cv.prenom)} ${esc(cv.nom)}</div>
+        <div class="detail-title-job">${esc(cv.titre || 'Titre non renseigné')}</div>
+        <div class="detail-contacts">
+          ${cv.email  ? `<div class="detail-contact">✉ ${esc(cv.email)}</div>` : ''}
+          ${cv.tel    ? `<div class="detail-contact">📞 ${esc(cv.tel)}</div>` : ''}
+          ${cv.ville  ? `<div class="detail-contact">📍 ${esc(cv.ville)}</div>` : ''}
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openForm(${cv.id})">✏ Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete(${cv.id})">🗑 Supprimer</button>
+      </div>
+    </div>
+
+    ${cv.resume ? `
+    <div class="section-label">Profil</div>
+    <div class="detail-bio">${esc(cv.resume)}</div>` : ''}
+
+    <div class="section-label">Compétences</div>
+    <div class="skills-grid">${skillsHTML}</div>
+
+    ${expHTML}
+    ${videoHTML}
+    ${audioHTML}
+  `;
+}
+
+// ── FORM MODAL
+/** @param {number|undefined} id */
+function openForm(id) {
+  editingId = id ?? null;
+  document.getElementById('modal-title').textContent = id ? 'Modifier le CV' : 'Nouveau CV';
+  resetForm();
+
+  if (id !== undefined) {
+    const cv = cvList.find(c => c.id === id);
+    if (cv) fillForm(cv);
+  }
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function closeForm() {
+  document.getElementById('modal').style.display = 'none';
+  resetForm();
+  editingId = null;
+}
+
+function resetForm() {
+  ['f-prenom','f-nom','f-titre','f-email','f-tel','f-ville','f-education','f-certifications','f-languages','f-softskills','f-interests',
+   'f-resume','f-skills','f-exp-role','f-exp-company','f-exp-period','f-exp-desc']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('f-photo').value = '';
+  document.getElementById('f-video').value = '';
+  document.getElementById('photo-label').textContent = 'Choisir une image (JPG, PNG…)';
+  document.getElementById('video-label').textContent = 'Choisir une vidéo (MP4, WebM…)';
+   document.getElementById('audio-label').textContent = 'Choisir un audio (mp3, WAV)';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-preview').src = '';
+}
+
+/** @param {CV} cv */
+function fillForm(cv) {
+  const set = (id, val) => { document.getElementById(id).value = val || ''; };
+  set('f-prenom',      cv.prenom);
+  set('f-nom',         cv.nom);
+  set('f-titre',       cv.titre);
+  set('f-email',       cv.email);
+  set('f-tel',         cv.tel);
+  set('f-ville',       cv.ville);
+  set('f-resume',      cv.resume);
+  set('f-skills',      cv.skills);
+  set('f-exp-role',    cv.expRole);
+  set('f-exp-company', cv.expCompany);
+  set('f-exp-period',  cv.expPeriod);
+  set('f-exp-desc',    cv.expDesc);
+  if (cv.photoData) {
+    const preview = document.getElementById('photo-preview');
+    preview.src = cv.photoData; preview.style.display = 'block';
+    document.getElementById('photo-label').textContent = 'Photo chargée ✓';
+  }
+  if (cv.videoData) {
+    document.getElementById('video-label').textContent = 'Vidéo chargée ✓';
+  }
+  if (cv.audioData) {
+    document.getElementById('audio-label').textContent = 'Audio chargée ✓';
+  }
+}
+
+async function saveCV() {
+  const prenom = document.getElementById('f-prenom').value.trim();
+  const nom    = document.getElementById('f-nom').value.trim();
+  if (!prenom || !nom) { toast('Prénom et nom sont obligatoires.', 'error'); return; }
+
+  const photoData = await fileToBase64('f-photo');
+  const videoData = await fileToBase64('f-video');
+   const audioData = await fileToBase64('f-audio');
+
+  /** @type {CV} */
+  const cv = {
+    prenom, nom,
+    titre:      document.getElementById('f-titre').value.trim(),
+    email:      document.getElementById('f-email').value.trim(),
+    tel:        document.getElementById('f-tel').value.trim(),
+    ville:      document.getElementById('f-ville').value.trim(),
+    resume:     document.getElementById('f-resume').value.trim(),
+    skills:     document.getElementById('f-skills').value.trim(),
+    expRole:    document.getElementById('f-exp-role').value.trim(),
+    expCompany: document.getElementById('f-exp-company').value.trim(),
+    expPeriod:  document.getElementById('f-exp-period').value.trim(),
+    expDesc:    document.getElementById('f-exp-desc').value.trim(),
+    photoData:  photoData || (editingId ? cvList.find(c=>c.id===editingId)?.photoData : ''),
+    videoData:  videoData || (editingId ? cvList.find(c=>c.id===editingId)?.videoData : ''),
+    audioData:  audioData || (editingId ? cvList.find(c=>c.id===editingId)?.audioData : ''),
+    createdAt:  new Date().toLocaleDateString('fr-FR'),
+  };
+
+  try {
+    if (editingId !== null) {
+      cv.id = editingId;
+      await updateCV(cv);
+      selectedId = editingId;
+      toast('CV mis à jour avec succès !', 'success');
+    } else {
+      const newId = await addCV(cv);
+      selectedId = newId;
+      toast('CV créé avec succès !', 'success');
+    }
+    closeForm();
+    await refreshList();
+  } catch (err) {
+    console.error(err);
+    toast('Erreur lors de l\'enregistrement.', 'error');
+  }
+}
+
+/** @param {number} id */
+function confirmDelete(id) {
+  const cv = cvList.find(c => c.id === id);
+  if (!cv) return;
+  if (!confirm(`Supprimer le CV de ${cv.prenom} ${cv.nom} ? Cette action est irréversible.`)) return;
+  deleteCVById(id);
+}
+
+/** @param {number} id */
+async function deleteCVById(id) {
+  try {
+    await deleteCV(id);
+    if (selectedId === id) selectedId = null;
+    toast('CV supprimé.', 'success');
+    await refreshList();
+  } catch (err) {
+    toast('Erreur lors de la suppression.', 'error');
+  }
+}
+
+// ── FILE HELPERS
+/** @param {HTMLInputElement} input */
+function previewPhoto(input) {
+  labelFile(input, 'photo-label');
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('photo-preview');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function labelFile(input, labelId) {
+  const file = input.files[0];
+  if (file) document.getElementById(labelId).textContent = file.name + ' ✓';
+}
+
+/** @param {string} inputId @returns {Promise<string>} */
+function fileToBase64(inputId) {
+  return new Promise((resolve) => {
+    const input = document.getElementById(inputId);
+    const file  = input?.files?.[0];
+    if (!file) { resolve(''); return; }
+    const reader = new FileReader();
+    reader.onload  = (e) => resolve(e.target.result);
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── TOAST
+/** @param {string} msg @param {'success'|'error'} type */
+function toast(msg, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="dot"></span>${msg}`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── UTILS
+function esc(str = '') {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── WIRE UP
+document.getElementById('btn-new-cv').addEventListener('click', () => openForm());
+
+// Close modal on backdrop click
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal')) closeForm();
+});
+
+// ── BOOT
+init();
+</script>
+</body>
+</html>
